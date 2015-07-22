@@ -1,0 +1,171 @@
+---
+title: "Practical Machine Learning Course Project - Predicting the Manner in which Unilateral Dumbbell Biceps Curl Exercises Were Performed"
+author: "Benay Dara-Abrams"
+output: html_document
+geometry: margin=5cm
+---
+## Introduction
+  
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit, it is now possible to collect
+a large amount of data about personal activity relatively inexpensively. 
+These types of devices are part of the quantified self movement – a group of enthusiasts 
+who take measurements about themselves regularly to improve their health, 
+to find patterns in their behavior, or because they are tech geeks.  
+  
+One thing that people regularly do is quantify how much of a particular activity they do, 
+but they rarely quantify how well they do it. 
+Therefore, a study was performed, tracking six male participants, between 20 and 28 years of age,
+with little weight lifting experience.
+    
+In this study, participants were asked to perform one set of 10 repetitions of the Unilateral
+Dumbbell Biceps Curl in five different fashions: 
+  
+* Class A -- exactly according to the specification  
+* Class B -- throwing the elbows to the front   
+* Class C -- lifting the dumbbell only halfway  
+* Class D -- lowering the dumbbell only halfway  
+* Class E -- throwing the hips to the front   
+  
+Participants were supervised by an experienced weight lifter to make sure their execution complied
+with the particular manner of performance the participant was asked to simulate.
+  
+In this project, the goal is to use the data collected during this study and predict the
+manner in which the exercise was performed -- the "classe" variable in the training set. 
+  
+This report provides a description of model building and cross validation, and calculates
+the expected out of sample error, explaining the rationale underlying the choices made. 
+  
+Then the prediction model is used to predict 20 different test cases. 
+  
+More information on the study and dataset can be found on the website --
+http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+  
+The training data for this project can be found on the website --
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+  
+The test data for this project can be found on the website --
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+## Load packages
+The caret (Classification And REgression Training) package provides functions to streamline the process of creating predictive models, including train, trainControl, CreateDataPartition, and confusionMatrix.  
+The randomForest package provides functions implementing Breiman and Cutler's random forests algorithm to perform classification and regression based on a forest of trees using random inputs.  
+We'll set message and warning to FALSE to turn off messages and warnings when loading packages.  
+```{r, message=FALSE, warning=FALSE}
+library(caret)
+library(randomForest)
+```  
+## Parallel Processing  
+Building a training model can be very time-intensive with a large training set.  To improve performance in building the training model, we set up and register parallel processing before calling the train function.    
+```{r, message=FALSE, warning=FALSE}
+library(doParallel)
+registerDoParallel(cores=2)
+```  
+## Data Processing
+Read in training and testing files.  
+Convert #DIV/0! and NULL values to NA.
+```{r}
+training_df_all <- read.csv("../data/pml-training.csv", na.strings = c("NA", "#DIV/0!", ""))
+testing_df_all <- read.csv("../data/pml-testing.csv", na.strings = c("NA", "#DIV/0!", ""))
+```  
+## Clean Data
+Examining the training and testing datasets, we see that the first 7 columns are not needed for prediction, so we take them out of training and testing data frames.
+```{r}
+training_df1 <- training_df_all[, -c(1:7)]
+testing_df1 <- testing_df_all[, -c(1:7)]
+```
+We then take out the columns with all NAs.  
+```{r}
+training_df_clean <- training_df1[, colSums(is.na(training_df1)) == 0]
+testing_df_clean <- testing_df1[, colSums(is.na(testing_df1)) == 0]
+``` 
+## Build Machine Learning Algorithm to Predict Activity Quality from Activity Monitors
+
+We now proceed to create training and test datasets, fit a predictive model using the Random Forests method with 5-fold cross-validation, and construct a model to predict the classe variable (representing activity quality) from the activity monitors.
+
+Before we start building the model, we set the seed for reproducibility.
+```{r}
+set.seed <- 1013876
+```  
+### Create Training and Test datasets
+The first step in building the model is to split the dataset into a training dataset and a test dataset. Following the 60:40 split convention, I created a training dataset that is 60% of the overall dataset and a test dataset that is 40% of the overall dataset.  
+
+Since I didn't know how long the model building process would take, I did an initial run to test my R script with the training dataset set to be 10% of the overall dataset. Then I performed subsequent runs increasing the percentage by 10%, so the second run was 20%, the third run 30%, the fourth run 40%, the fifth run 50%, and the sixth run (and all subsequent runs) had 60% of the overall dataset in the training dataset. Since each of these runs was completed in an increasing but reasonable amount of time, I was able to generate a model for the 60:40 split that yields a higher degree of accuracy than the smaller training datasets, and I was able to accomplish this with tractable performance.
+```{r}
+inTrain <- createDataPartition(training_df_clean$classe, p = .6, list=FALSE)
+training <- training_df_clean[inTrain, ]
+testing <- training_df_clean[-inTrain, ]
+```
+### Fit Predictive Model  
+The Random Forests model construction method is an ensemble learning method used for classification and regression.  The Random Forests method was chosen since this method uses multiple models, resulting in better performance than only using a single tree model. According to Jeff Leek in the class lecture on Random Forests, this method is quite accurate though it may be quite slow since it is building a large number of trees. In addition, it can be difficult to interpret and understand. Jeff also mentions that another disadvantage of this method is that it can lead to overfitting, which is further complicated by the fact that it's very hard to determine which trees are the ones that are leading to overfitting. Therefore, it is very important to use cross validation when building Random Forests.    
+
+### Cross Validation  
+We use a k-fold cross-validation method, which involves randomly partitioning the original sample into k equal-sized subsamples. Retaining a single subsample out of the k subsamples to serve as the validation data for testing the model, the remaining k-1 subsamples are used as training data.    
+
+I chose to use 5-fold cross-validation since, according to Jeff Leek in the Cross Validation lecture, a larger value of k leads to less bias but more variance, depending a lot on which random subsets are used. With a smaller value of k, the estimate of out of sample error may not be as good, but there will be less variance. Based on this trade-off, setting k equal to 5 seemed like a reasonable compromise. Since we are using 5-fold cross-validation, the cross-validation process is repeated 5 times, using each of the 5 subsamples exactly one time to serve as the validation data. The 5 results from the folds are then combined, resulting in a single estimation.  
+```{r}
+RFcontrol <- trainControl(method="cv", 5)
+``` 
+### Build Model
+
+Using the Random Forests method, we now construct a model to predict activity quality (the classe variable) from activity monitors.
+
+Note: since the model has already been built in earlier runs of my R script, the code that actually constructs the model is commented out and the cached model is read in from the file system.  
+```{r}
+# model_RF <- train(classe ~ ., data = training, method = "rf", trControl = RFcontrol)
+model_RF <- readRDS("model_RF60-40.rds")
+print(model_RF)
+```
+As we can see in the output from the Random Forests model, the final value used for the model was mtry = `r model_RF$bestTune$mtry` with an accuracy of `r max(model_RF$results$Accuracy[1:3])`. 
+
+## Estimate Out of Sample Error
+
+According to Jeff Leek in his lecture on In and Out of Sample Errors, in sample error is defined as the error you get on the same data you used to train the data. In sample error is sometimes referred to as resubstitution. Since the prediction algorithm tunes itself to the noise collected in the specific data set, overfitting leads to in sample error being overly optimistic. A new data set will have different noise, and the accuracy will go down. 
+
+Therefore, after we build a model on a sample of data we've collected, we test it on a new sample to see how well the machine learning algorithm will perform on new data. We can then estimate the out of sample error, which is sometimes referred to as the generalization error in the machine learning literature. In sample error is always less than out of sample error, but if we give up a little of the accuracy in the sample we have, we can increase the accuracy of the model on new data sets that weren't used to build the training predictor.
+
+### Calculate confusionMatrix  
+The new dataset we use is the testing dataset we constructed earlier. This dataset is used as a validation dataset for cross-validation purposes to estimate the out of sample error of our prediction model.
+
+To estimate the out of sample error, we calculate the confusion matrix, showing the accuracy, which is defined as the proportion of the total number of predictions that were correct.  
+```{r}
+predict_RF <- predict(model_RF, testing)
+cm <- confusionMatrix(testing$classe, predict_RF)
+print(cm)
+```  
+### Compute estimated out of sample error
+
+The estimated out of sample error can be computed by subtracting the accuracy from 1.  
+```{r}
+acc <- cm$overall[[1]]
+out_of_sample_error <- 1 - acc
+print(out_of_sample_error)
+``` 
+
+The estimated out of sample error is: `r out_of_sample_error`.  
+
+## Apply model to project test data  
+Now we apply the Random Forests model to the test data for the project.  
+```{r}
+answers <- predict(model_RF, newdata = testing_df_clean)
+print(answers)
+```
+## Write results for automated submission  
+Now we use the script provided in the project submissions instructions to write results into a vector for automated submission. Each entry in the answers vector was written into a separate file and subsequently submitted to the automated script where all 20 answers were found to be correct. 
+
+Note: since my answers have already been submitted, the code to write answers into files has been commented out.  
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("answers/problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+# Answers were written into files for submission already
+# pml_write_files(answers)
+```  
+## Reference  
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. 
+Qualitative Activity Recognition of Weight Lifting Exercises.
+Proceedings of 4th International Conference in Cooperation with
+SIGCHI (Augmented Human '13). Stuttgart, Germany: ACM SIGCHI, 2013.
