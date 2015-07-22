@@ -117,7 +117,7 @@ testing_df_clean &lt;- testing_df1[, colSums(is.na(testing_df1)) == 0]</code></p
 <h2>Build Machine Learning Algorithm to Predict Activity Quality from Activity Monitors</h2>
 <p>We now proceed to create training and test datasets, fit a predictive model using the Random Forests method with 5-fold cross-validation, and construct a model to predict the classe variable (representing activity quality) from the activity monitors.</p>
 <p>Before we start building the model, we set the seed for reproducibility.</p>
-<pre class="r"><code>set.seed &lt;- 1013876</code></pre>
+<pre class="r"><code>set.seed(1013876)</code></pre>
 <div id="create-training-and-test-datasets" class="section level3">
 <h3>Create Training and Test datasets</h3>
 <p>The first step in building the model is to split the dataset into a training dataset and a test dataset. Following the 60:40 split convention, I created a training dataset that is 60% of the overall dataset and a test dataset that is 40% of the overall dataset.</p>
@@ -168,7 +168,7 @@ print(model_RF)</code></pre>
 </div>
 <div id="estimate-out-of-sample-error" class="section level2">
 <h2>Estimate Out of Sample Error</h2>
-<p>According to Jeff Leek in his lecture on In and Out of Sample Errors, in sample error is defined as the error you get on the same data you used to train the data. In sample error is sometimes referred to as resubstitution. Since the prediction algorithm tunes itself to the noise collected in the specific data set, overfitting leads to in sample error being overly optimistic. A new data set will have different noise, and the accuracy will go down.</p>
+<p>According to Jeff Leek in his lecture on In and Out of Sample Errors, in sample error is defined as the error you get on the same data you used to train the model. In sample error is sometimes referred to as resubstitution. Since the prediction algorithm tunes itself to the noise collected in the specific data set, overfitting leads to in sample error being overly optimistic. A new data set will have different noise, and the accuracy will go down.</p>
 <p>Therefore, after we build a model on a sample of data we’ve collected, we test it on a new sample to see how well the machine learning algorithm will perform on new data. We can then estimate the out of sample error, which is sometimes referred to as the generalization error in the machine learning literature. In sample error is always less than out of sample error, but if we give up a little of the accuracy in the sample we have, we can increase the accuracy of the model on new data sets that weren’t used to build the training predictor.</p>
 <div id="calculate-confusionmatrix" class="section level3">
 <h3>Calculate confusionMatrix</h3>
@@ -181,33 +181,33 @@ print(cm)</code></pre>
 ## 
 ##           Reference
 ## Prediction    A    B    C    D    E
-##          A 2231    1    0    0    0
-##          B    3 1513    2    0    0
-##          C    0    5 1360    3    0
+##          A 2230    1    0    0    1
+##          B    4 1511    3    0    0
+##          C    0    3 1363    2    0
 ##          D    0    1    9 1276    0
-##          E    0    1    1    1 1439
+##          E    0    1    0    0 1441
 ## 
 ## Overall Statistics
-##                                          
-##                Accuracy : 0.9966         
-##                  95% CI : (0.995, 0.9977)
-##     No Information Rate : 0.2847         
-##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16      
-##                                          
-##                   Kappa : 0.9956         
-##  Mcnemar's Test P-Value : NA             
+##                                           
+##                Accuracy : 0.9968          
+##                  95% CI : (0.9953, 0.9979)
+##     No Information Rate : 0.2847          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                                           
+##                   Kappa : 0.996           
+##  Mcnemar's Test P-Value : NA              
 ## 
 ## Statistics by Class:
 ## 
 ##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.9987   0.9947   0.9913   0.9969   1.0000
-## Specificity            0.9998   0.9992   0.9988   0.9985   0.9995
-## Pos Pred Value         0.9996   0.9967   0.9942   0.9922   0.9979
-## Neg Pred Value         0.9995   0.9987   0.9981   0.9994   1.0000
-## Prevalence             0.2847   0.1939   0.1749   0.1631   0.1834
-## Detection Rate         0.2843   0.1928   0.1733   0.1626   0.1834
+## Sensitivity            0.9982   0.9960   0.9913   0.9984   0.9993
+## Specificity            0.9996   0.9989   0.9992   0.9985   0.9998
+## Pos Pred Value         0.9991   0.9954   0.9963   0.9922   0.9993
+## Neg Pred Value         0.9993   0.9991   0.9981   0.9997   0.9998
+## Prevalence             0.2847   0.1933   0.1752   0.1629   0.1838
+## Detection Rate         0.2842   0.1926   0.1737   0.1626   0.1837
 ## Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
-## Balanced Accuracy      0.9992   0.9970   0.9950   0.9977   0.9998</code></pre>
+## Balanced Accuracy      0.9989   0.9975   0.9953   0.9985   0.9996</code></pre>
 </div>
 <div id="compute-estimated-out-of-sample-error" class="section level3">
 <h3>Compute estimated out of sample error</h3>
@@ -215,8 +215,8 @@ print(cm)</code></pre>
 <pre class="r"><code>acc &lt;- cm$overall[[1]]
 out_of_sample_error &lt;- 1 - acc
 print(out_of_sample_error)</code></pre>
-<pre><code>## [1] 0.003441244</code></pre>
-<p>The estimated out of sample error is: 0.0034412.</p>
+<pre><code>## [1] 0.003186337</code></pre>
+<p>The estimated out of sample error is: 0.0031863.</p>
 </div>
 </div>
 <div id="apply-model-to-project-test-data" class="section level2">
